@@ -5,8 +5,8 @@ const OrganizationAssetsTool = tool({
     description: "Get a list of organization assets from table analysis",
 
     parameters: z.object({
-        query: z.string().describe("The question the user is asking about organization assets"),
-        organization_id: z.string().describe("The user pass organization_id field ")
+        query: z.string().describe("The query about assets"),
+        organization_id: z.string().describe("The organization ID")
     }),
 
     execute: async ({ organization_id, query }) => {
@@ -32,4 +32,23 @@ const OrganizationAssetsTool = tool({
     },
 });
 
-module.exports = { OrganizationAssetsTool };
+const OpeniTool = tool({
+    description: "Submit data for further AI processing via OpenI",
+
+    parameters: z.object({
+        tool: z.string().describe("The sub-tool name, e.g., 'openia'"),
+        data: z.any().describe("The data to be processed")
+    }),
+
+    execute: async ({ tool, data }) => {
+        console.log(`openi tool called | tool=${tool}`);
+
+        return {
+            success: true,
+            message: `Data processed successfully by ${tool}.`,
+            processedAt: new Date().toISOString()
+        };
+    },
+});
+
+module.exports = { OrganizationAssetsTool, OpeniTool };

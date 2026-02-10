@@ -51,17 +51,17 @@ A15. It takes 6 to 12 months to improve your credit score based on the timely re
 Q16. I have already settled my personal loan and credit card. Why is my CIBIL score still low?
 A16. Even if you have settled your loan or credit card, any unpaid or unsettled portion may still be reflected in your CIBIL report as an overdue amount.
 
-Q17. What is Samatva?
-A17. Samatva is a credit counselling services company registered in Chennai. We specialize in helping individuals improve their CIBIL scores by providing solutions to resolve the unsettled amounts reflected in their credit reports.
+Q17. What is Rag?
+A17. Rag is a credit counselling services company registered in Chennai. We specialize in helping individuals improve their CIBIL scores by providing solutions to resolve the unsettled amounts reflected in their credit reports.
 
-Q18. How does Samatva help improve my CIBIL score?
-A18. Samatva provides solutions to clear unsettled amounts on personal loans and credit cards that appear in your CIBIL report. By securing a loan from an RBI-registered financial Institution to pay the unsettled amount on the existing loan.
+Q18. How does Rag help improve my CIBIL score?
+A18. Rag provides solutions to clear unsettled amounts on personal loans and credit cards that appear in your CIBIL report. By securing a loan from an RBI-registered financial Institution to pay the unsettled amount on the existing loan.
 
-Q19. Will Samatva help me if my CIBIL score is below 700?
-A19. Yes, Samatva will help, provided you have no more than two settled accounts.
+Q19. Will Rag help me if my CIBIL score is below 700?
+A19. Yes, Rag will help, provided you have no more than two settled accounts.
 
 Q20. What is the maximum amount of financial support available to improve a credit score?
-A20. Samatva will help by facilitating through an RBI registered financial institution. The amount provided by them is up to 2 Lakhs maximum, we will connect them with you.
+A20. Rag will help by facilitating through an RBI registered financial institution. The amount provided by them is up to 2 Lakhs maximum, we will connect them with you.
 
 Q21. What is the Rate of Interest for the loan provided?
 A21. The Loan is provided by an RBI-registered financial institution; we will connect them with you.
@@ -69,8 +69,8 @@ A21. The Loan is provided by an RBI-registered financial institution; we will co
 Q22. What is the tenure of the loan that I will get?
 A22. The Loan is provided by an RBI-registered financial institution. The tenure provided by them is minimum 6 months and a maximum of 24 months. We will connect them with you.
 
-Q23. Can Samatva help me secure funding to clear my settled overdue accounts?
-A23. Yes, Samatva assists customers in securing funding from an RBI-registered financial institution to clear overdue amounts on settled accounts only, thus improving their credit profile.
+Q23. Can Rag help me secure funding to clear my settled overdue accounts?
+A23. Yes, Rag assists customers in securing funding from an RBI-registered financial institution to clear overdue amounts on settled accounts only, thus improving their credit profile.
 
 Q24. Will I get a loan to pay the outstanding unsettled amount?
 A24. It is for salaried customers who are currently employed.
@@ -78,17 +78,17 @@ A24. It is for salaried customers who are currently employed.
 Q25. I am self-employed, will I get a loan to pay the outstanding unsettled amount?
 A25. It is only for salaried customers currently employed.
 
-Q26. Does Samatva charge any fees for its services?
-A26. Samatva does not charge any fees from customers for its credit counselling service, unlike other counselling companies.
+Q26. Does Rag charge any fees for its services?
+A26. Rag does not charge any fees from customers for its credit counselling service, unlike other counselling companies.
 
-Q27. Who can benefit from Samatva's services?
+Q27. Who can benefit from Rag's services?
 A27. Any salaried customer currently employed who has settled personal loan or credit cards with not more than two accounts, but still has outstanding dues can benefit from our services.
 
-Q28. How can I get started with Samatva's services?
+Q28. How can I get started with Rag's services?
 A28. Once you give your consent to proceed, our experts will assess your CIBIL report and offer the best solutions to clear the unsettled amounts.
 
-Q29. Where is Samatva located?
-A29. Samatva's registered office is in Chennai.
+Q29. Where is Rag located?
+A29. Rag's registered office is in Chennai.
 
 Q30. Why should I share my CIBIL Details?
 A30. A credit report is essential to understand your outstanding amount with financial institutions.
@@ -105,21 +105,20 @@ A33. Credit reports are secured, hence we require your consent to understand you
 Q34. Who is the Promoter?
 A34. Two Ex-Bankers with more than 25 years of experience each have started this new concept in India.
 
-Q35. Why should I trust Samatva?
+Q35. Why should I trust Rag?
 A35. Thallam and Venkat, Ex-Bankers, have started this concept in India to help delinquent (settled) customers come out of their credit score issues.
 `;
 };
 
 const faqTool = tool({
-    description: "Get answers to frequently asked questions about Samatva credit counselling services",
+    description: "Get answers to frequently asked questions about Rag credit counselling services",
     parameters: z.object({
-        question: z.string().describe("The question the user is asking about credit scores or Samatva services"),
+        question: z.string().describe("The question the user is asking about credit scores or Rag services"),
     }),
     execute: async ({ question }) => {
         console.log(`FAQ tool called with question: ${question}`);
-        return {
-            content: getFaqs(),
-        };
+        const faqs = getFaqs();
+        return faqs;
     },
 });
 

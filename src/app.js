@@ -7,7 +7,19 @@ const app = express();
 /**
  * Express Middleware
  */
-app.use(express.json());
+app.use((req, res, next) => {
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    next();
+});
+
+app.use(express.json({ type: ['application/json', 'text/plain'] }));
+app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+    console.log('Parsed Body:', req.body);
+    console.log('--- End Request Metadata ---\n');
+    next();
+});
 
 /**
  * Health Check Route

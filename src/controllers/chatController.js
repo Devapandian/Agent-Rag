@@ -11,8 +11,8 @@ if (!apiKey) {
 const google = createGoogleGenerativeAI({
     apiKey: apiKey || '',
 });
-
-const model = google('gemini-2.0-flash');
+console.log('✅ Google Generative AI client initialized successfully.');
+const model = google('gemini-2.5-flash-lite');
 
 const buildSystemPrompt = () => {
     return [
@@ -65,6 +65,7 @@ exports.prompt = async (req, res) => {
             status: 'success',
             data: result.text,
         });
+        console.log('✅ Response sent successfully.');
     } catch (error) {
         console.error("Error in prompt:", error);
         res.status(500).json({ status: 'error', message: 'Internal server error' });

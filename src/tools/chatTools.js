@@ -113,10 +113,10 @@ A35. Thallam and Venkat, Ex-Bankers, have started this concept in India to help 
 const faqTool = tool({
     description: "Get answers to frequently asked questions about Rag credit counselling services",
     parameters: z.object({
-        question: z.string().describe("The question the user is asking about credit scores or Rag services"),
+        retrieve: z.literal('all').default('all').describe("Retrieve all FAQs"),
     }),
-    execute: async ({ question }) => {
-        console.log(`FAQ tool called with question: ${question}`);
+    execute: async ({ retrieve }) => {
+        console.log(`FAQ tool called to retrieve: ${retrieve}`);
         const faqs = getFaqs();
         return faqs;
     },

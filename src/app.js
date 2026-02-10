@@ -16,8 +16,6 @@ app.use(express.json({ type: ['application/json', 'text/plain'] }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use((req, res, next) => {
-    console.log('Parsed Body:', req.body);
-    console.log('--- End Request Metadata ---\n');
     next();
 });
 

@@ -7,7 +7,6 @@ const app = express();
  * Express Middleware
  */
 app.use((req, res, next) => {
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
     next();
 });
 

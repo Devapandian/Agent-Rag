@@ -8,22 +8,20 @@ const app = require('./app');
 const PORT = process.env.PORT || 3000;
 
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Rag Chat Service running on port: ${PORT}`);
+  console.log(` Rag Chat Service running on port: ${PORT}`);
 });
 
-/**
- * Automatic Shutdown (Graceful Closing)
- */
+
 const shutdown = (signal) => {
   console.log(`\nReceived ${signal}. Closing server...`);
   server.close(() => {
-    console.log('Server closed. Process exiting.');
+    console.log('');
     process.exit(0);
   });
 
   // Force exit after 10 seconds if not closed
   setTimeout(() => {
-    console.error('Could not close connections in time, forcefully shutting down');
+    console.error('');
     process.exit(1);
   }, 10000);
 };

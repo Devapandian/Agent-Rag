@@ -1,5 +1,4 @@
 const express = require('express');
-const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
@@ -26,10 +25,6 @@ app.get('/health', (req, res) => {
     res.json({ status: 'UP', message: 'Server is running smoothly' });
 });
 
-/**
- * Mount User Routes
- */
-app.use('/users', userRoutes);
 
 /**
  * Mount Chat Routes

@@ -1,18 +1,22 @@
-const { createGoogleGenerativeAI } = require('@ai-sdk/google');
-const { generateText, stepCountIs } = require('ai');
-const { faqTool } = require('../tools/chatTools');
+const { openai } = require('@ai-sdk/openai');
+const {
+    streamText,
+    stepCountIs,
+    createUIMessageStream,
+    pipeUIMessageStreamToResponse,
+    UI_MESSAGE_STREAM_HEADERS,
+} = require('ai');
+const { faqTool, isOrganizationAssetsTool } = require('../tools/chatTools');
 require('dotenv').config();
 
-const apiKey = process.env.GOOGLE_API_KEY || "";
+const apiKey = process.env.OPENAI_API_KEY || "";
 if (!apiKey) {
-    console.error('❌ ERROR: GOOGLE_API_KEY is not defined in .env file.');
+    console.error('ERROR: OPENAI_API_KEY is not defined in .env file.');
 }
 
-const google = createGoogleGenerativeAI({
-    apiKey: apiKey || '',
-});
-console.log('✅ Google Generative AI client initialized successfully.');
-const model = google('gemini-2.5-flash-lite');
+
+console.log('Google Generative AI client initialized successfully.');
+const model = openai('gpt-4o-mini');
 
 const buildSystemPrompt = () => {
     return [
@@ -22,7 +26,10 @@ const buildSystemPrompt = () => {
         "When to call the FAQ tool:",
         "- MUST call the FAQ tool whenever the customer asks anything about credit scores, CIBIL, loans, credit counselling, Rag services, or personal finance. Always use the tool first before answering — do not guess or answer from memory.",
         "",
-        "When NOT to call the FAQ tool:",
+        "When to call the Organization Assets tool:",
+        "- MUST call the isOrganizationAssets tool whenever the customer asks about organization assets, inventory, or what assets the company manages. Always use the tool first to get accurate analysis. Pass the organization_id (infer if possible or ask) and the customer's query as the 'query' parameter.",
+        "",
+        "When NOT to call tools:",
         "- If the customer is just greeting you (hello, hi, good morning, etc.) — respond directly without calling any tool.",
         "- If the customer is asking about a topic completely unrelated to finance or credit — respond directly without calling any tool.",
         "",
@@ -50,24 +57,30 @@ exports.prompt = async (req, res) => {
 
         const systemPrompt = buildSystemPrompt();
 
-        const result = await generateText({
+        res.set(UI_MESSAGE_STREAM_HEADERS);
+
+        const result = await streamText({
             model: model,
-            tools: { faq: faqTool },
+            tools: {
+                faq: faqTool,
+                isOrganizationAssets: isOrganizationAssetsTool
+            },
             toolConfig: {
                 functionCallingConfig: { mode: "AUTO" }
             },
-            stopWhen: stepCountIs(5),
+            maxSteps: 5,
             prompt: query,
             system: systemPrompt,
         });
 
-        res.json({
-            status: 'success',
-            data: result.text,
-        });
-        console.log('✅ Response sent successfully.');
+        result.pipeTextStreamToResponse(res);
+
+        console.log('Streaming response initiated.');
     } catch (error) {
         console.error("Error in prompt:", error);
-        res.status(500).json({ status: 'error', message: 'Internal server error' });
+        if (!res.headersSent) {
+            res.status(500).json({ status: 'error', message: 'Internal server error' });
+        }
     }
 };
+

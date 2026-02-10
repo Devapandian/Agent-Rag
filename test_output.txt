@@ -1,0 +1,17 @@
+[dotenv@17.2.4] injecting env (6) from .env -- tip: ≡ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.4] injecting env (0) from .env -- tip: ≡ƒùé∩╕Å backup and recover secrets: https://dotenvx.com/ops
+OpenAI client initialized successfully.
+Starting Asset Flow Test...
+[Chat] Query="Show my assets details" | Org=f37ae534-f6ab-4d9f-b333-090a4e9bd3ac
+[Chat] Iteration 1 starting...
+OrganizationAssets tool called | org=f37ae534-f6ab-4d9f-b333-090a4e9bd3ac | query=all | page=1 | date=undefined
+Querying Supabase: range(0, 9) for org=f37ae534-f6ab-4d9f-b333-090a4e9bd3ac
+OrganizationAssets completed.
+ - Tool calls: OrganizationAssets
+[Chat] Iteration 2 starting...
+CRITICAL Error in prompt: Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'.
+API Error Details: {"message":"Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'.","type":"invalid_request_error","param":"messages.[3].role","code":null}
+Response: {
+  "message": "Internal server error",
+  "error": "Invalid parameter: messages with role 'tool' must be a response to a preceeding message with 'tool_calls'."
+}

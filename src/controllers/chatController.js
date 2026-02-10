@@ -12,48 +12,172 @@ console.log('OpenAI client initialized successfully.');
 const buildSystemPrompt = () => {
     return [
         "You are Rag Assistant, the official virtual assistant for Rag.",
-        "You help users with organization assets.",
+        "You help users with organization assets through a MANDATORY multi-step process.",
         "",
-        "MUST call the OrganizationAssets tool for any asset-related question.",
-        "After receiving the response from OrganizationAssets, you MUST immediately call the 'openi' tool with 'tool: openia' and pass the asset data to it.",
-        "Never guess asset data.",
+        "### CRITICAL WORKFLOW - FOLLOW EXACTLY:",
+        "Step 1: When asked about assets, call the 'OrganizationAssets' tool",
+        "Step 2: IMMEDIATELY after receiving OrganizationAssets results, call 'openi' tool with:",
+        "   - tool: 'openia'",
+        "   - data: (the complete result from OrganizationAssets)",
+        "Step 3: After 'openi' confirms data receipt, provide a formatted response to the user",
+        "",
+        "### IMPORTANT:",
+        "- You MUST complete ALL three steps for every asset query",
+        "- DO NOT stop after calling OrganizationAssets",
+        "- DO NOT provide a final answer until after calling openi",
+        "- The workflow is: OrganizationAssets → openi → final response",
+        "",
+        "### FINAL RESPONSE FORMAT:",
+        "- Use Markdown tables for multiple assets",
+        "- Include: ID (truncated), Source, Created Date, Findings Count",
+        "- Show page number and total count",
+        "- Be professional and clear",
+        "- Never guess data - only use tool results",
     ].join("\n");
 };
 
+function formatAssetsResponse(assetData) {
+    const { results, total_count, page, organization_id } = assetData;
+    
+    if (!results || results.length === 0) {
+        return `No assets found for organization ${organization_id}.`;
+    }
+    
+    let response = `## Organization Assets (Page ${page})\n\n`;
+    response += `Found **${results.length}** assets on this page (Total: **${total_count}** assets)\n\n`;
+    
+    response += `| ID | Source | Created | Findings |\n`;
+    response += `|----|--------|---------|----------|\n`;
+    
+    results.forEach(asset => {
+        const shortId = asset.id ? asset.id.substring(0, 8) + '...' : 'N/A';
+        const source = asset.source || 'Unknown';
+        const created = asset.created_at ? new Date(asset.created_at).toLocaleDateString() : 'N/A';
+        const findings = asset.findings_count || 0;
+        
+        response += `| ${shortId} | ${source} | ${created} | ${findings} |\n`;
+    });
+    
+    return response;
+}
+
 exports.prompt = async (req, res) => {
     try {
-        const { query, toolname, organization_id } = req.body;
+        const { query, toolname, organization_id, page, date_filter } = req.body;
 
         if (!query) {
             return res.status(400).json({ message: 'Query required' });
         }
 
-        console.log(`[Chat] Query="${query}" | Org=${organization_id} | Tool=${toolname || 'AUTO'}`);
+        const orgId = organization_id || 'f37ae534-f6ab-4d9f-b333-090a4e9bd3ac';
+        console.log(`[Chat] Query="${query}" | Org=${orgId} | Page=${page} | Date=${date_filter}`);
 
-        const promptWithContext = `User is asking about organization: ${organization_id || 'unknown'}. Question: ${query}`;
+        const promptWithContext = [
+            `Organization ID: ${orgId}.`,
+            page ? `Page: ${page}.` : "",
+            date_filter ? `Date Filter: ${date_filter}.` : "",
+            `User Question: ${query}`
+        ].filter(Boolean).join(" ");
+
+        const system = buildSystemPrompt();
+
+        console.log(`[Chat] Calling AI SDK with maxSteps=5, maxToolRoundtrips=3...`);
 
         const result = await generateText({
             model,
-            system: buildSystemPrompt(),
+            system,
             prompt: promptWithContext,
             maxSteps: 5,
+            maxToolRoundtrips: 3, // Allows multiple rounds of tool calls
             tools: {
                 OrganizationAssets: OrganizationAssetsTool,
                 openi: OpeniTool
             },
-
         });
 
-        console.log('[Chat] Task completed');
-        return res.json({
-            text: result.text,
-            organization_id: organization_id
-        });
+        console.log(`[Chat] AI finished. Finish Reason: ${result.finishReason}`);
+        console.log(`[Chat] Steps taken: ${result.steps?.length || 'N/A'}`);
+        console.log(`[Chat] Text length: ${result.text?.length || 0}`);
+
+        // Debug logging
+        if (result.toolCalls?.length > 0) {
+            console.log('[Chat] Tool calls made:', result.toolCalls.map(tc => tc.toolName));
+        }
+        
+        if (result.toolResults?.length > 0) {
+            console.log('[Chat] Tool results received:', result.toolResults.map(tr => tr.toolName));
+        }
+
+        let finalText = result.text;
+
+        // Fallback if AI didn't generate final text
+        if (!finalText || finalText.trim().length === 0) {
+            console.log('[Chat] Warning: No text generated by AI. Checking tool results...');
+            
+            if (result.toolResults) {
+                const hasOrganizationAssets = result.toolResults.some(tr => tr.toolName === 'OrganizationAssets');
+                const hasOpeni = result.toolResults.some(tr => tr.toolName === 'openi');
+                
+                console.log(`[Chat] Workflow check - OrganizationAssets: ${hasOrganizationAssets}, openi: ${hasOpeni}`);
+                
+                if (hasOrganizationAssets && !hasOpeni) {
+                    finalText = "⚠️ The workflow was incomplete. The system called OrganizationAssets but failed to process through openi. Please try again or contact support.";
+                } else if (hasOpeni) {
+                    // Extract the asset data from openi result
+                    const openiResult = result.toolResults.find(tr => tr.toolName === 'openi')?.result;
+                    const assetData = openiResult?.asset_data;
+                    
+                    if (assetData && assetData.results) {
+                        console.log('[Chat] Generating fallback response from asset data...');
+                        finalText = formatAssetsResponse(assetData);
+                    } else {
+                        finalText = "Data was processed but no asset information could be formatted. Please try again.";
+                    }
+                } else {
+                    finalText = "I couldn't retrieve the asset information. Please try rephrasing your question.";
+                }
+            } else {
+                finalText = "I processed your request but didn't generate a response. Please try again.";
+            }
+        }
+
+        // Response with debug info
+        const response = {
+            text: finalText,
+            organization_id: orgId,
+            page: page,
+            date_filter: date_filter
+        };
+
+        // Add debug info in development
+        if (process.env.NODE_ENV === 'development') {
+            response.debug = {
+                finishReason: result.finishReason,
+                toolCallsMade: result.toolCalls?.map(tc => tc.toolName) || [],
+                toolResultsReceived: result.toolResults?.map(tr => tr.toolName) || [],
+                stepsCompleted: result.steps?.length || 0,
+                textGenerated: !!result.text
+            };
+        }
+
+        console.log('[Chat] Response prepared successfully.');
+        return res.json(response);
 
     } catch (err) {
-        console.error('Error in prompt:', err);
+        console.error('❌ CRITICAL Error in prompt:', err.message);
+        if (err.data && err.data.error) {
+            console.error('API Error Details:', JSON.stringify(err.data.error, null, 2));
+        }
+        if (err.stack) {
+            console.error('Stack trace:', err.stack);
+        }
+        
         if (!res.headersSent) {
-            res.status(500).json({ message: 'Internal server error' });
+            res.status(500).json({ 
+                message: 'Internal server error', 
+                error: err.message,
+                details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+            });
         }
     }
 };

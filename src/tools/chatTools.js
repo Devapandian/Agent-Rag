@@ -1,53 +1,44 @@
 const { tool } = require('ai');
 const { z } = require('zod');
 const { supabase } = require('../config/supabase');
+const { openai } = require('@ai-sdk/openai');
+const { generateText } = require('ai');
+
+const model = openai('gpt-4o-mini', {
+    structuredOutputs: false
+});
 
 const OrganizationAssetsTool = tool({
-    description: "Get a list of organization assets from Supabase database. This is the first step in retrieving asset information.",
+    description: "Get a list of organization assets from Supabase database.",
 
     parameters: z.object({
         query: z.string().describe("The user's query about assets"),
         organization_id: z.string().describe("The organization ID to query"),
-        page: z.number().optional().default(1).describe("Page number for pagination (default: 1)"),
-        date_filter: z.string().optional().describe("Optional date filter for assets (format: YYYY-MM-DD)"),
-        toolname: z.string().optional().default('openia').describe("The tool name to use for processing (default: openia)")
+        toolname: z.string().optional().default('openai').describe("The tool name to use for processing (default: openai)")
     }),
 
-    execute: async ({ organization_id, query, page, date_filter, toolname }) => {
+    execute: async ({ organization_id, query, toolname }) => {
         console.log(
-            `📊 OrganizationAssets tool called | org=${organization_id} | query="${query}" | page=${page} | date=${date_filter || 'none'} | toolname=${toolname}`
+            ` OrganizationAssets tool called | org=${organization_id} | query="${query}" | toolname=${toolname}`
         );
 
-        const validPage = (typeof page === 'number' && !isNaN(page) && page > 0) ? page : 1;
-        const pageSize = 10;
-        const from = (validPage - 1) * pageSize;
-        const to = from + pageSize - 1;
-
-        console.log(`🔍 Querying Supabase: range(${from}, ${to}) for org=${organization_id}`);
+        console.log(`Querying Supabase for organization_id=${organization_id}`);
 
         try {
             let supabaseQuery = supabase
                 .from('scan_details')
-                .select('*', { count: 'exact' })
+                .select('findings,source,total_findings,source_data, created_at', { count: 'exact' })
                 .eq('organization_id', organization_id)
-                .order('created_at', { ascending: false })
-                .range(from, to);
-
-            if (date_filter) {
-                console.log(`📅 Applying date filter: >= ${date_filter}`);
-                supabaseQuery = supabaseQuery.gte('created_at', date_filter);
-            }
 
             const { data: assets, error, count } = await supabaseQuery;
-
+console.log(`Supabase query completed with ${assets?.length || 0} results`);
             if (error) {
-                console.error('❌ Supabase error:', error);
+                console.error(' Supabase error:', error);
                 return {
                     found: false,
                     error: true,
                     message: `Database error: ${error.message}. Please try again or contact support.`,
                     organization_id,
-                    page: validPage,
                     toolname
                 };
             }
@@ -64,180 +55,113 @@ const OrganizationAssetsTool = tool({
                 organization_id,
                 count: assets ? assets.length : 0,
                 total_count: count || 0,
-                page: validPage,
-                toolname: toolname || 'openia',
-                user_query: query, // Pass original query for context
+                toolname: "OpenaiTool" ,
+                user_query: query,
                 results: summaryResults,
                 answer: assets && assets.length > 0
-                    ? `Found ${assets.length} assets on page ${validPage} (total ${count} assets). NOW IMMEDIATELY CALL the 'openi' tool with tool='${toolname || 'openia'}' and pass this complete data along with the user's original query for intelligent analysis.`
-                    : `No assets found for organization ${organization_id} with the given criteria. You can now respond to the user with this information.`
+                    ? `Found ${count} total assets. NOW IMMEDIATELY CALL the 'openai' tool with tool='${toolname || 'openai'}' and pass this complete data for AI analysis.`
+                    : `No assets found for organization ${organization_id}. You can now respond to the user with this information.`
             };
 
-            console.log(`✅ OrganizationAssets: Found ${result.count} assets (total: ${count})`);
+            console.log(` OrganizationAssets: Found ${result.total_count} assets`);
 
             return result;
 
         } catch (error) {
-            console.error('❌ Unexpected error in OrganizationAssets:', error);
+            console.error(' Unexpected error in OrganizationAssets:', error);
             return {
                 found: false,
                 error: true,
                 message: `Unexpected error occurred: ${error.message}`,
                 organization_id,
-                page: validPage,
                 toolname
             };
         }
     },
 });
 
-const OpeniTool = tool({
-    description: "Analyze and process asset data to provide intelligent insights and conversational responses based on the user's query.",
+const OpenaiTool = tool({
+    description: "Process asset data through AI analysis to provide intelligent insights and conversational responses.",
 
     parameters: z.object({
-        tool: z.string().describe("The sub-tool name (e.g., 'openia')"),
+        tool: z.string().describe("The sub-tool name (e.g., 'openai')"),
         data: z.any().describe("The complete data object from OrganizationAssets tool")
     }),
 
     execute: async ({ tool, data }) => {
-        console.log(`🔧 openi tool called | sub-tool=${tool}`);
+        console.log(`openai tool called | sub-tool=${tool}`);
         
         const assetCount = data?.results?.length || 0;
         const totalCount = data?.total_count || 0;
-        const page = data?.page || 1;
-        const organization_id = data?.organization_id || 'unknown';
         const userQuery = data?.user_query || '';
         const results = data?.results || [];
 
-        console.log(`✅ Analyzing: ${assetCount} assets (page ${page}, total ${totalCount})`);
+        console.log(`Processing ${totalCount} assets through AI`);
 
-        // **ANALYSIS LOGIC**
-        
-        // 1. Group by source
-        const sourceGroups = {};
-        results.forEach(asset => {
-            const source = asset.source || 'Unknown';
-            if (!sourceGroups[source]) {
-                sourceGroups[source] = {
-                    count: 0,
-                    totalFindings: 0,
-                    assets: []
-                };
-            }
-            sourceGroups[source].count++;
-            sourceGroups[source].totalFindings += asset.findings_count || 0;
-            sourceGroups[source].assets.push(asset);
-        });
+        try {
+            const analysisPrompt = `You are a security asset analyst. Analyze the following asset data and provide a conversational, insightful response.
 
-        // 2. Calculate statistics
-        const totalFindings = results.reduce((sum, asset) => sum + (asset.findings_count || 0), 0);
-        const avgFindings = assetCount > 0 ? (totalFindings / assetCount).toFixed(1) : 0;
-        
-        // 3. Find high-risk assets (more than 30 findings)
-        const highRiskAssets = results.filter(asset => asset.findings_count > 30);
-        
-        // 4. Get most recent scan
-        const mostRecent = results.length > 0 ? results[0].created_at : null;
-        
-        // 5. Get unique sources
-        const sources = Object.keys(sourceGroups);
-        const topSource = sources.reduce((max, source) => 
-            sourceGroups[source].count > (sourceGroups[max]?.count || 0) ? source : max
-        , sources[0]);
+User's Question: "${userQuery}"
 
-        // **BUILD CONVERSATIONAL RESPONSE**
-        let analysis = '';
+Asset Data:
+- Total Assets: ${totalCount}
+- Organization ID: ${data.organization_id}
 
-        // Header
-        analysis += `I found **${assetCount} assets** on page ${page} (out of ${totalCount} total assets) for your organization.\n\n`;
+Asset Details:
+${JSON.stringify(results, null, 2)}
 
-        // Quick insights
-        analysis += `### 📊 Quick Insights:\n`;
-        analysis += `- **Total Findings**: ${totalFindings} security findings across all assets\n`;
-        analysis += `- **Average Findings per Asset**: ${avgFindings}\n`;
-        analysis += `- **Asset Sources**: ${sources.length} different sources (${sources.join(', ')})\n`;
-        if (topSource) {
-            analysis += `- **Most Common Source**: ${topSource} (${sourceGroups[topSource].count} assets)\n`;
-        }
-        if (mostRecent) {
-            const recentDate = new Date(mostRecent).toLocaleDateString();
-            analysis += `- **Most Recent Scan**: ${recentDate}\n`;
-        }
-        analysis += `\n`;
+Please provide:
+1. A brief overview of the total assets
+2. Key insights (total findings, average findings per asset, breakdown by source)
+3. Highlight any high-risk assets (assets with more than 30 findings)
+4. Present the data in a clean table format with columns: ID, Source, Findings (NO date or page columns)
+5. End with actionable recommendations if applicable
 
-        // High-risk alert
-        if (highRiskAssets.length > 0) {
-            analysis += `### ⚠️ High-Risk Assets:\n`;
-            analysis += `Found **${highRiskAssets.length} assets** with more than 30 findings that require immediate attention:\n`;
-            highRiskAssets.forEach(asset => {
-                const shortId = asset.id.substring(0, 8) + '...';
-                analysis += `- **${asset.source}** (${shortId}): ${asset.findings_count} findings\n`;
+Use a professional but conversational tone. Use markdown formatting with headers, bullet points, and tables.
+Do NOT include page numbers or dates in your response.`;
+
+            console.log(` Calling AI for analysis...`);
+
+            const aiResult = await generateText({
+                model,
+                prompt: analysisPrompt,
+                temperature: 0.7,
+                maxTokens: 2000,
             });
-            analysis += `\n`;
-        }
 
-        // Source breakdown
-        if (sources.length > 1) {
-            analysis += `### 🔍 Breakdown by Source:\n`;
-            Object.keys(sourceGroups).sort((a, b) => 
-                sourceGroups[b].count - sourceGroups[a].count
-            ).forEach(source => {
-                const group = sourceGroups[source];
-                analysis += `- **${source}**: ${group.count} assets, ${group.totalFindings} findings\n`;
-            });
-            analysis += `\n`;
-        }
+            const conversationalResponse = aiResult.text || "Unable to generate analysis at this time.";
 
-        // Detailed table
-        analysis += `### 📋 Detailed Asset List:\n\n`;
-        analysis += `| ID | Source | Created | Findings |\n`;
-        analysis += `|----|--------|---------|----------|\n`;
-        results.forEach(asset => {
-            const shortId = asset.id.substring(0, 8) + '...';
-            const created = new Date(asset.created_at).toLocaleDateString();
-            analysis += `| ${shortId} | ${asset.source} | ${created} | ${asset.findings_count} |\n`;
-        });
-        analysis += `\n`;
+            console.log(` AI analysis completed (${conversationalResponse.length} characters)`);
 
-        // Pagination info
-        const totalPages = Math.ceil(totalCount / 10);
-        if (totalPages > 1) {
-            analysis += `---\n`;
-            analysis += `📄 **Page ${page} of ${totalPages}** | `;
-            if (page < totalPages) {
-                analysis += `There are ${totalCount - (page * 10)} more assets available. `;
-            }
-            analysis += `\n\n`;
-        }
-
-        // Call to action
-        if (highRiskAssets.length > 0) {
-            analysis += `💡 **Recommendation**: Focus on the ${highRiskAssets.length} high-risk assets first to reduce your security exposure.\n`;
-        }
-
-        const result = {
-            success: true,
-            analysis_complete: true,
-            conversational_response: analysis,
-            metadata: {
-                assets_on_page: assetCount,
-                total_assets: totalCount,
-                current_page: page,
-                total_pages: totalPages,
-                organization_id: organization_id,
-                total_findings: totalFindings,
-                avg_findings: parseFloat(avgFindings),
-                high_risk_count: highRiskAssets.length,
-                sources: sources,
-                top_source: topSource,
+            return {
+                success: true,
+                analysis_complete: true,
+                conversational_response: conversationalResponse,
                 processed_by: tool,
-                processedAt: new Date().toISOString()
-            }
-        };
+                metadata: {
+                    total_assets: totalCount,
+                    organization_id: data.organization_id,
+                    user_query: userQuery,
+                    processedAt: new Date().toISOString()
+                }
+            };
 
-        console.log(`✅ openi analysis completed | ${assetCount} assets analyzed | ${totalFindings} findings`);
-        return result;
+        } catch (error) {
+            console.error(' Error in openai AI analysis:', error);
+            
+            return {
+                success: false,
+                error: true,
+                conversational_response: `I found ${totalCount} assets but encountered an error during analysis. Please try again.`,
+                error_message: error.message,
+                metadata: {
+                    total_assets: totalCount,
+                    organization_id: data.organization_id,
+                    processedAt: new Date().toISOString()
+                }
+            };
+        }
     },
 });
 
-module.exports = { OrganizationAssetsTool, OpeniTool };
+module.exports = { OrganizationAssetsTool, OpenaiTool };

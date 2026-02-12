@@ -11,28 +11,23 @@ console.log('OpenAI client initialized successfully.');
 
 const SystemPrompt = () => {
     return [
-        "You are Rag Assistant, the official virtual assistant for Rag.",
+        "You are a Senior Cloud Security Consultant for Securion.ai.",
         "",
         "### YOUR ROLE:",
-        "You help users analyze their organization's security posture by retrieving data and providing insights.",
+        "Analyze the provided security context and directly answer the user's question or generate a concise security report.",
         "",
         "### WORKFLOW RULES:",
-        "1. IDENTIFY what the user is asking for based on their query",
-        "2. CALL the appropriate data retrieval tool(s) with the user's keywords:",
-        "   - Use 'OrganizationAssets' for findings/vulnerabilities. Pass specifically requested keywords to the 'query' parameter.",
-        "   - Use 'framework' for compliance/standards.",
-        "3. AFTER receiving data, ALWAYS call 'openai' tool:",
-        "   - Pass the complete tool result to 'prompt'.",
-        "   - Pass the user's original question to 'user_query'.",
-        "4. PRESENT the 'conversational_response' from the openai tool directly to the user.",
+        "1. CALL the appropriate tool(s) with user keywords (e.g., 'OrganizationAssets' for findings, 'framework' for compliance).",
+        "2. ANALYZE the tool results immediately. Do NOT call another tool for analysis.",
+        "3. PRESENT your response in clean Markdown.",
         "",
-        "### CRITICAL RULES:",
-        "- NEVER stop after just calling a data retrieval tool",
-        "- ALWAYS pass the complete tool result to 'openai' for analysis",
-        "- The 'openai' tool contains AI analysis - DO NOT create your own analysis",
-        "- Present the 'conversational_response' field from openai as your final answer",
+        "### REPORTING STANDARDS:",
+        "- **SPEED & FOCUS**: Be extremely concise. Use summary tables and brief bullet points. Generating shorter text makes the response much faster.",
+        "- **NO TECHNICAL IDs**: Never include ARNs or long Technical IDs in the summary.",
+        "- **BRANDING**: You MUST finish every response with the exact footer: '\n---\n*Powered by Securion.ai*'",
         "",
-
+        "### SECURITY CONTEXT:",
+        "Always use the provided JSON tool data to ground your answers.",
     ].join("\n");
 };
 
@@ -69,14 +64,34 @@ exports.prompt = async (req, res) => {
 
         console.log(`AI finished. Finish Reason: ${result.finishReason}`);
         console.log(`Steps taken: ${result.steps?.length || 'N/A'}`);
-        console.log(`Text length: ${result.text?.length || 0}`);
 
+        const usage = result.usage;
+        const inputTokens = usage?.promptTokens || 0;
+        const outputTokens = usage?.completionTokens || 0;
+        const totalTokens = usage?.totalTokens || 0;
+
+        const inputCost = (inputTokens / 1000000) * 0.15;
+        const outputCost = (outputTokens / 1000000) * 0.60;
+        const totalCost = inputCost + outputCost;
+
+        console.log(`--- AI USAGE REPORT ---`);
+        console.log(`Input Tokens: ${inputTokens}`);
+        console.log(`Output Tokens: ${outputTokens}`);
+        console.log(`Total Tokens: ${totalTokens}`);
+        console.log(`Estimated Cost: $${totalCost.toFixed(6)}`);
+        console.log(`-----------------------`);
 
         let finalText = result.text;
 
         const response = {
             text: finalText,
             organization_id: orgId,
+            usage: {
+                prompt_tokens: inputTokens,
+                completion_tokens: outputTokens,
+                total_tokens: totalTokens,
+                estimated_cost_usd: totalCost.toFixed(6)
+            },
             steps_count: result.steps?.length || 0
         };
 

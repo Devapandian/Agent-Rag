@@ -281,21 +281,39 @@ contract ReferralStake is Ownable {
 
 Moving to Mainnet (Ethereum or BSC) is a serious step because it involves **real financial risk**. Here is how to handle the transition.
 
-### 1. How to buy ETH / BNB for Gas
-To interact with the Mainnet, both you (as the Owner) and your clients need "Gas Money" (Native Coin).
-1.  **Centralized Exchange (CEX):** Sign up for a site like **Binance**, **Coinbase**, or **Kraken**.
-2.  **Buy Coins:** Buy **ETH** (if using Ethereum) or **BNB** (if using BSC).
-3.  **Withdraw to MetaMask:** 
-    *   Click "Withdraw" on the exchange.
-    *   Select the correct network (e.g., **BSC / BEP20** for Binance Smart Chain).
-    *   Paste your MetaMask wallet address.
-4.  **Wait:** In 5-10 minutes, the real money will appear in your MetaMask.
+### 1. How "Real Money" becomes "Gas Money"
+To deploy your contract, you need Native Coins (ETH or BNB). Here is how you get them using your bank account or credit card.
 
-### 2. Managing Real Gas Fees
-On Testnets, we don't care about gas. On Mainnet, it matters:
-*   **Base Fee:** The minimum cost to include your transaction.
-*   **Priority Fee (Tip):** Extra money you pay to the miners/validators to skip the line.
-*   **Remix/MetaMask Tip:** Before confirming, you can click "Market" in MetaMask and change it to "Low" to save money if you aren't in a rush.
+#### Option A: Centralized Exchange (Best for large amounts)
+1.  **Sign Up:** Create an account on **Binance** or **Coinbase**.
+2.  **Verification:** Complete your Identity Verification (KYC).
+3.  **Buy Crypto:**
+    *   **Credit/Debit Card:** Buy BNB or ETH directly using your card.
+    *   **P2P (Peer-to-Peer):** Transfer money to a local seller via bank transfer, and they release the crypto to your exchange wallet.
+4.  **Withdraw:** Send the coins from the exchange to your **MetaMask Address**.
+
+#### Option B: MetaMask "Buy" Button (Easiest)
+1.  Open MetaMask.
+2.  Click the **Buy** button on the home screen.
+3.  MetaMask will connect you to a provider like **MoonPay**, **Transak**, or **Sardine**.
+4.  Pay with your **Apple Pay**, **Google Pay**, or **Credit Card**.
+5.  *The coins will arrive directly in your MetaMask wallet in a few minutes.*
+
+### 2. Managing "Real Money" Gas Fees
+On Mainnet, Every click costs money.
+*   **The "Empty Tank" Problem:** If your wallet has 0 ETH, you cannot even *send* your tokens to someone else. You are "stuck."
+*   **Base Fee (The Market Price):** This is the current cost of the network. If someone is minting a popular NFT, this fee goes UP for everyone.
+*   **Priority Fee (The Tip):** Extra money to make your transaction faster.
+*   **Gas Limit:** Think of this as the "Max Liter of Fuel" your car can use. If you set it too low, your transaction will **FAIL**, and you will **LOSE** the money you spent on gas.
+
+#### Pro Tip for Costs:
+Before you deploy your **ERC20Token**, check a gas tracker (like [BSCScan Gas Tracker](https://bscscan.com/gastracker)). If gas is "Normal," it might cost $0.50. If it is "High," it might cost $2.00. Wait for the price to drop!
+
+### 3. What if a Client runs out of ETK?
+If a client spends all their tokens in your staking contract:
+1.  **They cannot use the contract anymore** until they get more tokens.
+2.  **They also need native coins (ETH/BNB)** for gas to call any function.
+3.  **Solution:** You can build a small "Buy" button on your website that uses a **Payment Gateway** (like Stripe or PayPal) to charge them real money, and then your server automatically sends ETK to their wallet.
 
 ### 3. The Deployment Order (IMPORTANT)
 You **must** deploy your contracts in this specific order:

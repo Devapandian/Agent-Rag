@@ -1,12 +1,6 @@
 const { tool } = require('ai');
 const { z } = require('zod');
 const { supabase } = require('../config/supabase');
-const { openai } = require('@ai-sdk/openai');
-const { generateText } = require('ai');
-
-const model = openai('gpt-4o-mini', {
-    structuredOutputs: false
-});
 
 const OrganizationAssetsTool = tool({
     description: `Retrieves security findings, source_data,total_findings,source, and asset details from the database for an organization, including cloud assets (AWS/Azure/GCP), infrastructure issues, recent security assessments, and comparison of findings over time`,
@@ -148,7 +142,7 @@ const OrganizationAssetsTool = tool({
 });
 
 const FrameworkTool = tool({
-   description: "Retrieves organization compliance framework details, regulatory status, adherence, gaps, and security standards (e.g., SOC 2, ISO 27001, HIPAA, PCI-DSS).",
+    description: "Retrieves organization compliance framework details, regulatory status, adherence, gaps, and security standards (e.g., SOC 2, ISO 27001, HIPAA, PCI-DSS).",
 
     parameters: z.object({
         organization_id: z.string().describe("The organization ID to query"),
@@ -260,105 +254,8 @@ const RiskTool = tool({
     },
 });
 
-const OpenaiTool = tool({
-    description: `Analyzes security data and generates professional reports and insights.
-    IMPORTANT: This tool should ONLY be called AFTER retrieving data from OrganizationAssets or Framework tools.
-    It takes the raw data from those tools and produces a conversational, analyst-quality response.
-    The AI will automatically determine the report type and format based on the data provided.`,
-
-    parameters: z.object({
-        prompt: z.any().describe("The complete result object from OrganizationAssets or Framework tools."),
-        user_query: z.string().optional().describe("The original user question to focus the summary/report on.")
-    }),
-
-    execute: async ({ prompt, user_query = '' }) => {
-        console.log(`OpenAI analysis tool called | query context: "${user_query}"`);
-
-        let processedData;
-        if (typeof prompt === 'string') {
-            try {
-                processedData = JSON.parse(prompt);
-            } catch (e) {
-                processedData = { data: prompt };
-            }
-        } else {
-            processedData = prompt;
-        }
-
-        const totalCount = processedData?.total_count || 0;
-        const results = processedData?.results || [];
-        const sourceTool = processedData?.toolname || 'unknown';
-        const organizationId = processedData?.organization_id || 'N/A';
-
-        console.log(`Processing ${results?.length || 0} items through AI | Source: ${sourceTool}`);
-
-        try {
-
-            const analysisPrompt = `
-You are a Senior Cloud Security Consultant.
-
-Directly answer the user's question or generate a professional summary based on the provided security context.
-
-### CONTEXT:
-- Organization ID: ${organizationId}
-- Source Tool: ${sourceTool}
-- Scans Analyzed: ${totalCount}
-- User Question: "${user_query}"
-
-### INSTRUCTIONS:
-- **SPEED & FOCUS**: The user needs a quick, relevant answer. Use the aggregated "summary_counts" to provide a high-level overview immediately.
-- **CLEAN OUTPUT**: DO NOT include technical IDs (ARNs, findings IDs, or internal record IDs).
-- If the user asked for a "report", structure it with an Executive Summary, a Table of Severity Counts, top findings, and Actionable Remediation.
-- Use professional, punchy analyst tone. No fluff.
-
-### SECURITY DATA:
-${JSON.stringify(results, null, 2)}
-
-Provide your analysis in Markdown.
-`;
-
-            console.log(`Calling OpenAI for analysis...`);
-
-            const aiResult = await generateText({
-                model,
-                prompt: analysisPrompt,
-                temperature: 0.7,
-                maxTokens: 2000,
-            });
-
-            const conversationalResponse = aiResult.text || "Unable to generate analysis at this time.";
-
-            console.log(`AI analysis completed (${conversationalResponse.length} characters)`);
-
-            return {
-                success: true,
-                analysis_complete: true,
-                conversational_response: conversationalResponse,
-                processed_by: sourceTool,
-                metadata: {
-                    total_items: totalCount,
-                    organization_id: organizationId,
-                    source_tool: sourceTool,
-                    processedAt: new Date().toISOString()
-                }
-            };
-
-        } catch (error) {
-            console.error('Error in OpenAI analysis:', error);
-
-            return {
-                success: false,
-                error: true,
-                conversational_response: `I found ${totalCount} items but encountered an error during analysis. Please try again.`,
-                error_message: error.message,
-            };
-        }
-    },
-});
-
 const chatTools = {
     OrganizationAssets: OrganizationAssetsTool,
-    openai: OpenaiTool,
     framework: FrameworkTool,
     risk: RiskTool
 };

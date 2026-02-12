@@ -16,11 +16,6 @@ const SystemPrompt = () => {
         "### YOUR ROLE:",
         "You help users analyze their organization's security posture by retrieving data and providing insights.",
         "",
-        "### AVAILABLE TOOLS:",
-        "1. OrganizationAssets - Retrieves security scan findings and vulnerabilities",
-        "2. framework - Retrieves organization framework compliance details", 
-        "3. openai - Analyzes and summarizes data into professional reports",
-        "",
         "### WORKFLOW RULES:",
         "1. IDENTIFY what the user is asking for based on their query",
         "2. CALL the appropriate data retrieval tool(s):",
@@ -35,15 +30,7 @@ const SystemPrompt = () => {
         "- The 'openai' tool contains AI analysis - DO NOT create your own analysis",
         "- Present the 'conversational_response' field from openai as your final answer",
         "",
-        "### EXAMPLES:",
-        "User: 'Show me our vulnerabilities'",
-        "→ Call OrganizationAssets → Call openai with the result → Present conversational_response",
-        "",
-        "User: 'What's our compliance status?'",
-        "→ Call framework → Call openai with the result → Present conversational_response",
-        "",
-        "User: 'Compare our security findings from last month'",
-        "→ Call OrganizationAssets → Call openai with the result → Present conversational_response",
+       
     ].join("\n");
 };
 

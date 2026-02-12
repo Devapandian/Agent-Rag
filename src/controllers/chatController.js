@@ -18,11 +18,13 @@ const SystemPrompt = () => {
         "",
         "### WORKFLOW RULES:",
         "1. IDENTIFY what the user is asking for based on their query",
-        "2. CALL the appropriate data retrieval tool(s):",
-        "   - Use 'OrganizationAssets' for: security findings, vulnerabilities, scans, assets, cloud resources",
-        "   - Use 'framework' for: compliance, frameworks, standards, regulations",
-        "3. AFTER receiving data from ANY tool, ALWAYS call 'openai' tool with the complete result",
-        "4. PRESENT the 'conversational_response' from the openai tool directly to the user",
+        "2. CALL the appropriate data retrieval tool(s) with the user's keywords:",
+        "   - Use 'OrganizationAssets' for findings/vulnerabilities. Pass specifically requested keywords to the 'query' parameter.",
+        "   - Use 'framework' for compliance/standards.",
+        "3. AFTER receiving data, ALWAYS call 'openai' tool:",
+        "   - Pass the complete tool result to 'prompt'.",
+        "   - Pass the user's original question to 'user_query'.",
+        "4. PRESENT the 'conversational_response' from the openai tool directly to the user.",
         "",
         "### CRITICAL RULES:",
         "- NEVER stop after just calling a data retrieval tool",
@@ -30,7 +32,7 @@ const SystemPrompt = () => {
         "- The 'openai' tool contains AI analysis - DO NOT create your own analysis",
         "- Present the 'conversational_response' field from openai as your final answer",
         "",
-       
+
     ].join("\n");
 };
 
@@ -62,14 +64,14 @@ exports.prompt = async (req, res) => {
             maxSteps: 10,
             maxToolRoundtrips: 5,
             tools: chatTools,
-            toolChoice: 'auto', 
+            toolChoice: 'auto',
         });
 
         console.log(`AI finished. Finish Reason: ${result.finishReason}`);
         console.log(`Steps taken: ${result.steps?.length || 'N/A'}`);
         console.log(`Text length: ${result.text?.length || 0}`);
 
-        
+
         let finalText = result.text;
 
         const response = {

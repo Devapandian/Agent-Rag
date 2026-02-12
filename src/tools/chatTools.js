@@ -15,9 +15,9 @@ const OrganizationAssetsTool = tool({
         organization_id: z.string().describe("The organization ID to query"),
     }),
 
-    execute: async ({ organization_id }) => {
-        console.log(`OrganizationAssets tool called | org=${organization_id}`);
-        console.log(`Querying  for organization_id=${organization_id}`);
+    execute: async ({ organization_id, query = '' }) => {
+        console.log(`OrganizationAssets tool called | org=${organization_id} | query="${query}"`);
+        console.log(`Querying for organization_id=${organization_id}`);
 
         try {
             const tenDaysAgo = new Date();
@@ -26,6 +26,7 @@ const OrganizationAssetsTool = tool({
             const supabaseQuery = supabase
                 .from('scan_details')
                 .select('findings,source,source_data,created_at')
+                .eq('organization_id', organization_id)
                 .order('created_at', { ascending: false })
                 .limit(50)
 
@@ -76,19 +77,46 @@ const OrganizationAssetsTool = tool({
             };
 
             const summaryResults = (assets || [])
-                .slice(0, 40) 
+                .slice(0, 15) // Limit scans for AI context to save time
                 .map(a => {
-                    const findingsSummary = summarizeFindings(a.findings);
-                    const sourceDataSummary = summarizeSourceData(a.source_data);
+                    let filteredFindings = a.findings;
+
+                    if (query && Array.isArray(filteredFindings)) {
+                        const searchLower = query.toLowerCase();
+                        filteredFindings = filteredFindings.filter(f =>
+                            (f.title || '').toLowerCase().includes(searchLower) ||
+                            (f.description || '').toLowerCase().includes(searchLower) ||
+                            (f.severity || '').toLowerCase().includes(searchLower) ||
+                            (f.category || '').toLowerCase().includes(searchLower)
+                        );
+                    }
+
+                    const counts = { critical: 0, high: 0, medium: 0, low: 0, unknown: 0 };
+                    if (Array.isArray(filteredFindings)) {
+                        filteredFindings.forEach(f => {
+                            const sev = (f.severity || 'unknown').toLowerCase();
+                            if (sev.includes('critical')) counts.critical++;
+                            else if (sev.includes('high')) counts.high++;
+                            else if (sev.includes('medium')) counts.medium++;
+                            else if (sev.includes('low')) counts.low++;
+                            else counts.unknown++;
+                        });
+                    }
+
+                    const findingsToSummarize = Array.isArray(filteredFindings) ? filteredFindings.slice(0, 5) : [];
+                    const sourceDataToSummarize = Array.isArray(a.source_data) ? a.source_data.slice(0, 5) : [];
+
+                    const findingsSummary = summarizeFindings(findingsToSummarize);
+                    const sourceDataSummary = summarizeSourceData(sourceDataToSummarize);
 
                     return {
                         id: a.id,
                         source: a.source || 'Unknown',
-                        created_at: a.created_at,
-                        findings_count: findingsSummary.length,
-                        findings: findingsSummary,
-                        source_data_count: sourceDataSummary.length,
-                        source_data: sourceDataSummary
+                        summary_counts: counts,
+                        findings_count: Array.isArray(filteredFindings) ? filteredFindings.length : 0,
+                        top_findings: findingsSummary,
+                        source_data_count: Array.isArray(a.source_data) ? a.source_data.length : 0,
+                        source_data_sample: sourceDataSummary
                     };
                 });
 
@@ -119,15 +147,8 @@ const OrganizationAssetsTool = tool({
     },
 });
 
-
 const FrameworkTool = tool({
-    description: `Retrieves organization compliance framework details and standards.
-    Use this tool when users ask about:
-    - Compliance frameworks (SOC 2, ISO 27001, HIPAA, PCI-DSS, etc.)
-    - Regulatory compliance status
-    - Framework adherence or implementation
-    - Compliance gaps or requirements
-    - Security standards and policies`,
+   description: "Retrieves organization compliance framework details, regulatory status, adherence, gaps, and security standards (e.g., SOC 2, ISO 27001, HIPAA, PCI-DSS).",
 
     parameters: z.object({
         organization_id: z.string().describe("The organization ID to query"),
@@ -182,11 +203,8 @@ const FrameworkTool = tool({
     },
 });
 
-
 const RiskTool = tool({
-    description: `Retrieves organization risk details and standards.
-    Use this tool when users ask about:
-    - risk Posture`,
+    description: "Retrieves organization risk details and standards, including risk posture.",
 
     parameters: z.object({
         organization_id: z.string().describe("The organization ID to query"),
@@ -242,7 +260,6 @@ const RiskTool = tool({
     },
 });
 
-
 const OpenaiTool = tool({
     description: `Analyzes security data and generates professional reports and insights.
     IMPORTANT: This tool should ONLY be called AFTER retrieving data from OrganizationAssets or Framework tools.
@@ -250,11 +267,12 @@ const OpenaiTool = tool({
     The AI will automatically determine the report type and format based on the data provided.`,
 
     parameters: z.object({
-        prompt: z.any().describe("The complete result object from OrganizationAssets or Framework tools. Must include: results, total_count, organization_id, and toolname fields.")
+        prompt: z.any().describe("The complete result object from OrganizationAssets or Framework tools."),
+        user_query: z.string().optional().describe("The original user question to focus the summary/report on.")
     }),
 
-    execute: async ({ prompt }) => {
-        console.log(`OpenAI analysis tool called`);
+    execute: async ({ prompt, user_query = '' }) => {
+        console.log(`OpenAI analysis tool called | query context: "${user_query}"`);
 
         let processedData;
         if (typeof prompt === 'string') {
@@ -279,24 +297,24 @@ const OpenaiTool = tool({
             const analysisPrompt = `
 You are a Senior Cloud Security Consultant.
 
-Generate a PROFESSIONAL LAST 10 DAYS SECURITY REPORT.
+Directly answer the user's question or generate a professional summary based on the provided security context.
 
-### Report Requirements:
-- Executive Summary
-- Total Findings in Last 10 Days
-- Trend Observations
-- High Risk Areas
-- Source-wise Breakdown (use table)
-- Actionable Remediation Plan
-- Risk Level Assessment
+### CONTEXT:
+- Organization ID: ${organizationId}
+- Source Tool: ${sourceTool}
+- Scans Analyzed: ${totalCount}
+- User Question: "${user_query}"
 
-Total Scans (Last 10 Days): ${totalCount}
+### INSTRUCTIONS:
+- **SPEED & FOCUS**: The user needs a quick, relevant answer. Use the aggregated "summary_counts" to provide a high-level overview immediately.
+- **CLEAN OUTPUT**: DO NOT include technical IDs (ARNs, findings IDs, or internal record IDs).
+- If the user asked for a "report", structure it with an Executive Summary, a Table of Severity Counts, top findings, and Actionable Remediation.
+- Use professional, punchy analyst tone. No fluff.
 
-Security Data:
+### SECURITY DATA:
 ${JSON.stringify(results, null, 2)}
 
-Write as a board-level security report.
-Avoid generic text.
+Provide your analysis in Markdown.
 `;
 
             console.log(`Calling OpenAI for analysis...`);
